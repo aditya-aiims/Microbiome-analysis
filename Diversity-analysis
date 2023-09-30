@@ -33,3 +33,53 @@ plot_richness(ps, x="category", measures=c("Observed","Shannon","chao1"), color 
   geom_boxplot(alpha=0.6)+
   theme(legend.position="none", axis.text.x=element_text(angle=360,hjust=1,vjust=1,size=8))+
   stat_compare_means(method = "t.test", comparisons = a_my_comparisons, label = "p.signif", symnum.args = symnum.args)
+
+
+#beta diversity plots
+
+library(tidyverse); packageVersion("tidyverse")
+library(phyloseq); packageVersion("phyloseq")
+library(DESeq2); packageVersion("DESeq2")
+library(microbiome); packageVersion("microbiome")
+library(vegan); packageVersion("vegan")
+library(picante); packageVersion("picante")
+library(ALDEx2); packageVersion("ALDEx2")
+library(metagenomeSeq); packageVersion("metagenomeSeq")
+library(HMP); packageVersion("HMP")
+library(dendextend); packageVersion("dendextend")
+library(selbal); packageVersion("selbal")
+library(rms); packageVersion("rms")
+library(breakaway); packageVersion("breakaway")
+
+ps <- phyloseq_object
+
+ps <- (filter_taxa(ps, function(x) sum(x > 0) > (0.1*length(x)), TRUE))
+
+#Sort samples on total read count, remove <1k reads, remove any OTUs seen in only those samples
+sort(phyloseq::sample_sums(ps))
+
+(ps <- phyloseq::subset_samples(ps, phyloseq::sample_sums(ps) > 1000))
+
+(ps <- phyloseq::prune_taxa(phyloseq::taxa_sums(ps) > 0, ps))
+
+#CLR transform
+(ps_clr <- microbiome::transform(ps, "clr"))
+
+#Generate distance matrix
+clr_dist_matrix <- phyloseq::distance(ps_clr, method = "euclidean")
+
+#ADONIS test
+vegan::adonis2(clr_dist_matrix ~ phyloseq::sample_data(ps_clr)$sampletype)
+
+#Dispersion test and plot
+dispr <- vegan::betadisper(clr_dist_matrix, phyloseq::sample_data(ps_clr)$sampletype)
+dispr
+permutest(dispr)
+
+plot(dispr, main = "Ordination Centroids and Dispersion Labeled: Aitchison Distance", sub = "")
+
+#Plotting category-wise dispersion from centroid
+boxplot(dispr, main = "", xlab = "")
+
+
+
