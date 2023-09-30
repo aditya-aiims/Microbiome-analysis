@@ -1,0 +1,35 @@
+# Load packages
+library(gghalves)
+library(microbiomeutilities)
+library(microbiome)
+library(ggpubr)
+
+
+ps <- physloseq_object
+
+#estimate sparsity
+species_counts_df <- data.frame(otu_table(ps))
+(sum(colSums(species_counts_df == 0))) / (nrow(species_counts_df) * ncol(species_counts_df))
+
+# Filter out features present in less than 5% of the samples
+(ps <- filter_taxa(ps, function(x) sum(x > 0) > (0.05*length(x)), TRUE))
+
+sort(phyloseq::sample_sums(ps))
+
+(ps <- phyloseq::subset_samples(ps, phyloseq::sample_sums(ps) > 100))
+
+
+#Rarefy to even sampling depth
+(ps <- rarefy_even_depth(ps, rngseed = 243, replace = FALSE))
+
+#Compressing ASV table to 'Species' level
+(ps <- phyloseq::tax_glom(ps, "Species"))
+
+a_my_comparisons <- list( c("1", "2"))
+symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "#", "ns"))
+
+#Plot alpha diversity plots
+plot_richness(ps, x="category", measures=c("Observed","Shannon","chao1"), color = "category")+
+  geom_boxplot(alpha=0.6)+
+  theme(legend.position="none", axis.text.x=element_text(angle=360,hjust=1,vjust=1,size=8))+
+  stat_compare_means(method = "t.test", comparisons = a_my_comparisons, label = "p.signif", symnum.args = symnum.args)
